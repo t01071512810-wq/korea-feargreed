@@ -55,12 +55,18 @@ def safe_haven(kospi: pd.Series, bond: pd.Series) -> pd.Series:
     return (kospi.pct_change(20) - bond.pct_change(20)) * 100
 
 
+def inverse_demand(inverse_value: pd.Series, leverage_value: pd.Series) -> pd.Series:
+    """인버스 ETF 거래대금 / 레버리지 ETF 거래대금 (5일 합계). 풋/콜 비율 대용, 높을수록 공포."""
+    return inverse_value.rolling(5).sum() / leverage_value.rolling(5).sum()
+
+
 # key, 이름, 설명, 단위, 탐욕 방향(+1: 값이 클수록 탐욕, -1: 작을수록 탐욕)
 SPECS = {
     "momentum": ("시장 모멘텀", "KOSPI와 125일 이동평균의 괴리율", "%", 1),
     "high_low": ("주가 강도", "52주 신고가 − 신저가 종목 비율 (KOSPI+KOSDAQ)", "%", 1),
     "breadth": ("시장 폭", "McClellan 거래량 합산지수 (상승·하락 종목 거래량)", "", 1),
     "volatility": ("시장 변동성", "KOSPI 20일 실현변동성의 50일 평균 대비 수준", "%", -1),
+    "inverse": ("하락 베팅 수요", "인버스 ÷ 레버리지 ETF 거래대금 5일 합계 (풋/콜 비율 대용)", "배", -1),
     "safe_haven": ("안전자산 수요", "KOSPI − 국고채10년 ETF 20일 수익률 차", "%p", 1),
     "credit": ("신용 스프레드", "회사채 3년 AA− 금리 − 국고채 3년 금리 (ECOS)", "%p", -1),
 }

@@ -30,7 +30,7 @@ body {
 
 nav { height: 64px; border-bottom: 1px solid var(--hairline); }
 nav .in { max-width: 1280px; margin: 0 auto; height: 100%; padding: 0 16px; display: flex; align-items: center; gap: 24px; }
-.brand { display: flex; align-items: center; gap: 8px; color: var(--primary); font-weight: 700; font-size: 18px; letter-spacing: -0.3px; text-decoration: none; }
+.brand { white-space: nowrap; display: flex; align-items: center; gap: 8px; color: var(--primary); font-weight: 700; font-size: 18px; letter-spacing: -0.3px; text-decoration: none; }
 .brand svg { flex: none; }
 .ticker { margin-left: auto; display: flex; gap: 24px; font-size: 14px; }
 .ticker .k { color: var(--muted); margin-right: 8px; font-weight: 500; }
@@ -185,7 +185,7 @@ footer .in { max-width: 1280px; margin: 0 auto; padding: 24px 16px 40px; font-si
       <li>지표 점수를 똑같은 비중으로 평균한 값이 최종 지수입니다.</li>
       <li>평일 16:30(장 마감 반영)과 다음 날 08:30(회사채 금리 반영 후 확정)에 갱신됩니다.</li>
     </ol>
-    <p>CNN Fear &amp; Greed Index의 구성을 한국 시장 데이터로 옮겼습니다. VKOSPI·풋/콜 비율은 공개 데이터를 쓸 수 없어 각각 KOSPI 실현변동성으로 대신하거나 제외했습니다.
+    <p>CNN Fear &amp; Greed Index의 구성을 한국 시장 데이터로 옮겼습니다. VKOSPI·풋/콜 비율은 KRX 인증키가 필요해 각각 KOSPI 실현변동성과 인버스·레버리지 ETF 거래대금 비율로 대신했습니다.
       52주 신고가·신저가와 시장 폭은 현재 상장 종목만으로 계산하므로 과거 구간에는 생존 편향이 있습니다.</p>
   </section>
 </main>

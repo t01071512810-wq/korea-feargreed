@@ -17,6 +17,8 @@ from kfg import indicators as ind
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "docs" / "data.json"
 BOND_ETF = "148070"  # KOSEF 국고채10년
+INVERSE_ETFS = ["114800", "252670"]  # KODEX 인버스, KODEX 200선물인버스2X
+LEVERAGE_ETF = "122630"  # KODEX 레버리지
 
 
 def load_env(path=ROOT / ".env"):
@@ -36,6 +38,13 @@ def main():
     kospi = fetch.series("KS11")["Close"]
     bond = fetch.series(BOND_ETF)["Close"].reindex(kospi.index).ffill()
 
+    def traded_value(code):
+        df = fetch.series(code)
+        return (df["Close"] * df["Volume"]).reindex(kospi.index).fillna(0)
+
+    inverse = sum(traded_value(c) for c in INVERSE_ETFS)
+    leverage = traded_value(LEVERAGE_ETF)
+
     print("개별 종목 수집")
     stocks = fetch.all_stocks()
     print(f"  {len(stocks)}개 종목")
@@ -48,6 +57,7 @@ def main():
         "high_low": ind.high_low(wide["High"], wide["Low"], wide["Close"]),
         "breadth": ind.breadth(wide["Close"], wide["Volume"]),
         "volatility": ind.volatility(kospi),
+        "inverse": ind.inverse_demand(inverse, leverage),
         "safe_haven": ind.safe_haven(kospi, bond),
     })
     spread = fetch.ecos_credit_spread()
