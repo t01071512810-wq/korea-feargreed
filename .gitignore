@@ -1,3 +1,6 @@
 data/prices/
 __pycache__/
 .env
+
+.vercel
+.env*
