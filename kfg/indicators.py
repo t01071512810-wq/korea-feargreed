@@ -24,14 +24,21 @@ def momentum(kospi: pd.Series) -> pd.Series:
     return (kospi / kospi.rolling(125).mean() - 1) * 100
 
 
-def high_low(high: pd.DataFrame, low: pd.DataFrame, close: pd.DataFrame) -> pd.Series:
-    """(52주 신고가 종목 수 − 신저가 종목 수) / 거래 종목 수, %."""
+def high_low_counts(high: pd.DataFrame, low: pd.DataFrame, close: pd.DataFrame) -> pd.DataFrame:
+    """날짜별 52주 신고가 종목 수(hi), 신저가 종목 수(lo), 비교 가능한 종목 수(n)."""
     hi52 = high.rolling(252, min_periods=240).max()
     lo52 = low.rolling(252, min_periods=240).min()
     valid = hi52.notna() & close.notna()
-    n_hi = ((high >= hi52) & valid).sum(axis=1)
-    n_lo = ((low <= lo52) & valid).sum(axis=1)
-    return (n_hi - n_lo) / valid.sum(axis=1).replace(0, np.nan) * 100
+    return pd.DataFrame({
+        "hi": ((high >= hi52) & valid).sum(axis=1),
+        "lo": ((low <= lo52) & valid).sum(axis=1),
+        "n": valid.sum(axis=1),
+    })
+
+
+def high_low(counts: pd.DataFrame) -> pd.Series:
+    """(52주 신고가 종목 수 − 신저가 종목 수) / 비교 가능한 종목 수, %."""
+    return (counts["hi"] - counts["lo"]) / counts["n"].replace(0, np.nan) * 100
 
 
 def breadth(close: pd.DataFrame, volume: pd.DataFrame) -> pd.Series:
@@ -42,6 +49,14 @@ def breadth(close: pd.DataFrame, volume: pd.DataFrame) -> pd.Series:
     ratio = (adv - dec) / (adv + dec).replace(0, np.nan) * 1000
     osc = ratio.ewm(span=19, adjust=False).mean() - ratio.ewm(span=39, adjust=False).mean()
     return osc.cumsum()
+
+
+def down_volume_share(close: pd.DataFrame, volume: pd.DataFrame, days: int = 10) -> pd.Series:
+    """최근 days일 동안 상승·하락 종목 거래량 합계 중 하락 종목 거래량의 비중, %."""
+    chg = close.diff()
+    adv = volume.where(chg > 0).sum(axis=1).rolling(days).sum()
+    dec = volume.where(chg < 0).sum(axis=1).rolling(days).sum()
+    return dec / (adv + dec).replace(0, np.nan) * 100
 
 
 def volatility(kospi: pd.Series) -> pd.Series:
@@ -78,3 +93,48 @@ def score(raw: pd.DataFrame) -> pd.DataFrame:
         direction = SPECS[key][3]
         out[key] = percentile_score(raw[key] * direction)
     return out
+
+
+MOODS = {
+    "극단적 공포": "시장 전반에 두려움이 크게 퍼져 있어요",
+    "공포": "투자자들이 조심스러운 분위기예요",
+    "중립": "두려움과 기대가 균형을 이루고 있어요",
+    "탐욕": "투자자들이 낙관적인 분위기예요",
+    "극단적 탐욕": "시장이 과열에 가까울 만큼 들떠 있어요",
+}
+
+
+def _more_less(v: float, more: str = "높음", less: str = "낮음") -> str:
+    return more if v >= 0 else less
+
+
+def plain_text(key: str, v: float, ctx: dict) -> str:
+    """지표의 오늘 원시값을 처음 보는 사람도 읽을 수 있는 한 줄로."""
+    if key == "momentum":
+        return f"KOSPI가 125일 평균보다 {abs(v):.1f}% {_more_less(v)}"
+    if key == "high_low":
+        return f"1년 중 최고가 경신 {ctx['hi']:,}개 · 최저가 경신 {ctx['lo']:,}개 종목"
+    if key == "breadth":
+        # 합산지수는 몇 주간 쌓인 흐름이라 최근 10일 비중과 방향이 다를 수 있어 둘 다 보여준다
+        down = ctx["down_share"]
+        trend = "상승" if ctx["breadth_above_avg"] else "하락"
+        return f"최근 10일 거래량 상승 {100 - down:.0f}% · 하락 {down:.0f}%, 누적 흐름은 {trend} 우세"
+    if key == "volatility":
+        return f"주가 출렁임이 50일 평균보다 {abs(v):.1f}% {_more_less(v, '큼', '작음')}"
+    if key == "inverse":
+        return f"하락에 거는 ETF 거래가 상승에 거는 ETF의 {v:.2f}배"
+    if key == "safe_haven":
+        return f"최근 20일 주식 수익률이 국채보다 {abs(v):.1f}%p {_more_less(v)}"
+    if key == "credit":
+        return f"우량 회사채 금리가 국채보다 {v:.2f}%p 높음 (1년 평균 {ctx['credit_avg']:.2f}%p)"
+    raise KeyError(key)
+
+
+def summary(labels: list[str]) -> str:
+    """'7개 지표 중 6개가 극단적 공포' 형식의 한 줄 요약. 같은 수면 더 극단적인 쪽을 고른다."""
+    order = [name for _, name in LABELS]
+    counts = {name: labels.count(name) for name in order}
+    top = max(order, key=lambda name: (counts[name], abs(order.index(name) - 2)))
+    if counts[top] == len(labels):
+        return f"{len(labels)}개 지표 모두 {top}"
+    return f"{len(labels)}개 지표 중 {counts[top]}개가 {top}"

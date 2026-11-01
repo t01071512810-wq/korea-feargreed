@@ -4,7 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>한국 공포·탐욕 지수</title>
-<meta name="description" content="KOSPI·KOSDAQ 시장 심리를 0~100으로 나타낸 한국판 Fear & Greed Index">
+<meta name="description" content="2026-10-30 장 마감 기준 · 7개 지표 중 6개가 극단적 공포. 시장 전반에 두려움이 크게 퍼져 있어요.">
+<!-- 링크 미리보기: 아래 content 값은 build.py 가 매일 오늘 점수로 바꿔 쓴다 -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="K-Fear &amp; Greed">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:title" content="한국 공포·탐욕 지수 16점 · 극단적 공포">
+<meta property="og:description" content="2026-10-30 장 마감 기준 · 7개 지표 중 6개가 극단적 공포. 시장 전반에 두려움이 크게 퍼져 있어요.">
+<meta property="og:url" content="https://korea-feargreed.vercel.app/">
+<meta property="og:image" content="https://korea-feargreed.vercel.app/og.png?v=20261030">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="한국 공포·탐욕 지수 16점 · 극단적 공포">
+<meta name="twitter:description" content="2026-10-30 장 마감 기준 · 7개 지표 중 6개가 극단적 공포. 시장 전반에 두려움이 크게 퍼져 있어요.">
+<meta name="twitter:image" content="https://korea-feargreed.vercel.app/og.png?v=20261030">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0b0e11">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -35,7 +53,8 @@ nav .in { max-width: 1280px; margin: 0 auto; height: 100%; padding: 0 16px; disp
 .ticker { margin-left: auto; display: flex; gap: 24px; font-size: 14px; }
 .ticker .k { color: var(--muted); margin-right: 8px; font-weight: 500; }
 .ticker .v { color: var(--on-dark); font-weight: 500; }
-@media (max-width: 560px) { .ticker .hide-sm { display: none; } }
+.ticker > span { white-space: nowrap; }
+@media (max-width: 560px) { .ticker .hide-sm { display: none; } nav .in { gap: 12px; } .brand { font-size: 16px; } }
 
 main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 80px; }
 .hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; margin-bottom: 24px; }
@@ -43,6 +62,10 @@ main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 80px; }
 .hero h1 em { font-style: normal; color: var(--primary); }
 .hero p { margin: 4px 0 0; color: var(--muted-strong); font-size: 14px; }
 .updated { color: var(--muted); font-size: 13px; }
+.summary { margin-top: 16px; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 10px 16px;
+  border-radius: 8px; background: var(--card); font-size: 16px; font-weight: 600; color: var(--on-dark); }
+.summary[hidden] { display: none; }
+.summary .mood { color: var(--muted-strong); font-weight: 400; }
 @media (max-width: 560px) { .hero h1 { font-size: 32px; } }
 
 .card { background: var(--card); border-radius: 12px; padding: 24px; }
@@ -54,6 +77,10 @@ section { margin-top: 24px; }
 .gauge-card { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: center; gap: 24px; }
 @media (max-width: 640px) { .gauge-card { grid-template-columns: 1fr; text-align: center; } }
 .gauge-card svg { width: 100%; height: auto; display: block; }
+.g-lbl { font-size: 19px; font-weight: 500; }
+.g-lbl.on { font-weight: 700; }
+.g-tick { font-size: 15px; }
+@media (max-width: 640px) { .g-lbl { font-size: 28px; } .g-tick { font-size: 20px; } }
 .stat-label { color: var(--muted); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
 .stat { font-size: 64px; font-weight: 700; line-height: 1.05; letter-spacing: -1px; color: var(--primary); margin: 4px 0; }
 .rating { display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; color: var(--on-dark); }
@@ -95,7 +122,8 @@ section { margin-top: 24px; }
 .ind .desc { font-size: 13px; color: var(--muted); margin: 4px 0 16px; }
 .ind .row { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
 .ind .score { font-size: 32px; font-weight: 700; color: var(--on-dark); line-height: 1.1; }
-.ind .raw { font-size: 13px; color: var(--muted-strong); margin-top: 8px; }
+.ind .now { font-size: 14px; color: var(--body); margin-top: 10px; }
+.ind .now b { color: var(--muted); font-weight: 500; margin-right: 6px; }
 .bar { position: relative; height: 6px; border-radius: 3px; margin: 12px 0 0; display: flex; gap: 2px; }
 .bar span { height: 100%; border-radius: 3px; }
 .bar i { position: absolute; top: -5px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: var(--on-dark); box-shadow: 0 0 0 2px var(--card); }
@@ -131,13 +159,14 @@ footer .in { max-width: 1280px; margin: 0 auto; padding: 24px 16px 40px; font-si
     <div>
       <h1>한국 <em>공포·탐욕</em> 지수</h1>
       <p>KOSPI·KOSDAQ 시장 심리를 0~100으로. 지금 시장은 무엇에 움직이고 있을까요?</p>
+      <div class="summary" id="summary" hidden></div>
     </div>
     <div class="updated" id="meta">불러오는 중…</div>
   </div>
 
   <div class="grid-top">
     <div class="card gauge-card">
-      <svg id="gauge" viewBox="-90 10 620 240" role="img" aria-labelledby="gauge-desc"><desc id="gauge-desc"></desc></svg>
+      <svg id="gauge" viewBox="-40 -14 520 284" role="img" aria-labelledby="gauge-desc"><desc id="gauge-desc"></desc></svg>
       <div>
         <div class="stat-label">현재 지수</div>
         <div class="stat num" id="score">–</div>
@@ -233,16 +262,24 @@ function gauge(score) {
       d: `M${x0},${y0} A${r},${r} 0 0 1 ${x1},${y1} L${x2},${y2} A${r - w},${r - w} 0 0 0 ${x3},${y3} Z`,
       fill: css(b.v), opacity: on ? 1 : 0.45,
     }, svg);
-    const mid = (lo + b.max) / 2;
-    const [lx, ly] = pt(mid, r + 10);
-    const anchor = mid < 40 ? "end" : mid > 60 ? "start" : "middle";
-    const t = el("text", { x: lx, y: ly, "text-anchor": anchor, "font-size": 17, "font-weight": on ? 600 : 500, fill: css(on ? "--on-dark" : "--muted") }, svg);
+    // 양 끝 구간 이름은 호 끝 아래에, 가운데 세 구간은 호 바깥에 둔다(작은 화면에서도 잘리지 않게)
+    const i = BANDS.indexOf(b), edge = i === 0 || i === BANDS.length - 1;
+    let lx, ly, anchor = "middle";
+    if (edge) {
+      [lx] = pt(i === 0 ? 0 : 100, r - w / 2);
+      ly = cy + 34;
+    } else {
+      const mid = (lo + b.max) / 2;
+      [lx, ly] = pt(mid, r + 12);
+      anchor = mid < 45 ? "end" : mid > 55 ? "start" : "middle";
+    }
+    const t = el("text", { x: lx, y: ly, "text-anchor": anchor, class: on ? "g-lbl on" : "g-lbl", fill: css(on ? "--on-dark" : "--muted-strong") }, svg);
     t.textContent = b.name;
     lo = b.max;
   });
-  [0, 25, 50, 75, 100].forEach(s => {
-    const [x, y] = pt(s, r - w - 14);
-    const t = el("text", { x, y: y + 4, "text-anchor": "middle", "font-size": 15, fill: css("--muted"), "font-family": css("--num") }, svg);
+  [25, 50, 75].forEach(s => {
+    const [x, y] = pt(s, r - w - 16);
+    const t = el("text", { x, y: y + 5, "text-anchor": "middle", class: "g-tick", fill: css("--muted"), "font-family": css("--num") }, svg);
     t.textContent = s;
   });
   const [nx, ny] = pt(score, r - w - 30);
@@ -352,7 +389,7 @@ function indicators(d) {
       <div class="bar" role="img" aria-label="${fmt(ind.score)}점">
         ${BANDS.map((b, i) => `<span style="flex:${widths[i]};background:var(${b.v})"></span>`).join("")}
         <i style="left:${ind.score}%"></i></div>
-      <div class="raw num">현재 값 ${fmt(ind.raw, 2)}${ind.unit}</div>
+      <div class="now"><b>지금</b>${ind.text}</div>
       <div class="spark"><div class="t">최근 1년 점수</div><svg viewBox="0 0 300 40" preserveAspectRatio="none"></svg></div>`;
     grid.appendChild(card);
     const svg = card.querySelector("svg"), hs = ind.history;
@@ -367,7 +404,10 @@ function render() {
   const kchg = (k.at(-1) / k.at(-2) - 1) * 100;
   const dprev = d.score - d.compare["전일"];
   const cls = v => (v > 0 ? "up" : v < 0 ? "down" : "");
-  document.getElementById("meta").textContent = `${d.updated} 장 마감 기준`;
+  document.getElementById("meta").textContent = `${d.updated} 장 마감 기준 · ${d.generated_at.slice(5).replace("-", "/")} 갱신`;
+  const sum = document.getElementById("summary");
+  sum.innerHTML = `<span class="dot" style="background:var(${b.v})"></span>${d.summary}<span class="mood">${d.mood}</span>`;
+  sum.hidden = false;
   document.getElementById("t-kospi").textContent = fmt(d.kospi, 2);
   document.getElementById("t-chg").innerHTML = `<span class="${cls(kchg)}">${signed(kchg, 2)}%</span>`;
   document.getElementById("t-score").textContent = fmt(d.score);
@@ -389,7 +429,10 @@ document.querySelectorAll(".ranges button").forEach(btn => btn.onclick = () => {
 window.addEventListener("resize", () => DATA && history());
 
 fetch("data.json", { cache: "no-store" }).then(r => r.json()).then(d => { DATA = d; render(); })
-  .catch(() => { document.getElementById("meta").innerHTML = '<span class="err">data.json을 불러오지 못했습니다. python build.py 를 먼저 실행하세요.</span>'; });
+  .catch(err => {
+    console.error("data.json 로드 실패", err);
+    document.getElementById("meta").innerHTML = '<span class="err">지수 데이터를 불러오지 못했어요. 잠시 후 새로고침해 주세요.</span>';
+  });
 </script>
 </body>
 </html>

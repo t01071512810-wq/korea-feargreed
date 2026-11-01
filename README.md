@@ -36,3 +36,9 @@ python -m http.server -d docs 8000
 `.github/workflows/update.yml`이 GitHub Actions에서 평일 16:30 KST(장 마감 반영)와 다음 날 08:30 KST(회사채 금리 반영 후 확정)에 `build.py`를 돌리고 `docs/data.json`을 커밋합니다. 저장소 설정에서 GitHub Pages를 `docs/` 폴더로 지정하고, Secrets에 `ECOS_API_KEY`를 넣으면 됩니다.
 
 참고용 지표이며 투자 권유가 아닙니다.
+
+## 링크 미리보기와 아이콘
+
+`build.py`가 매일 `docs/og.png`(오늘 점수·상태가 크게 보이는 1200×630 카드)를 그리고, `docs/index.html`의 `og:` 메타 태그를 오늘 값으로 바꿉니다. 카카오톡은 미리보기를 오래 캐시하므로 이미지 주소에 날짜(`?v=YYYYMMDD`)를 붙입니다. 바로 갱신이 안 보이면 [카카오 공유 디버거](https://developers.kakao.com/tool/debugger/sharing)에서 주소를 넣고 캐시를 지우면 됩니다.
+
+탭 아이콘은 `docs/favicon.svg`, PNG 아이콘은 `python -m kfg.og`로 다시 만듭니다. 글꼴은 Noto Sans KR(SIL OFL, `assets/OFL.txt`)에서 ASCII와 자주 쓰는 한글 2,350자만 남긴 것입니다.

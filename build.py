@@ -1,21 +1,28 @@
-"""데이터를 받아 지수를 계산하고 docs/data.json 을 만든다.
+"""데이터를 받아 지수를 계산하고 docs/ 아래 결과물을 만든다.
 
     python build.py            # 전 종목 캐시 갱신 + 계산
 
+만드는 파일: docs/data.json(페이지 데이터), docs/og.png(링크 미리보기 이미지),
+docs/index.html 의 미리보기용 메타 태그(오늘 점수·상태).
 .env 파일에 ECOS_API_KEY 가 있으면 신용 스프레드 지표도 포함한다.
 """
 import json
 import os
+import re
 import time
+from datetime import datetime, timedelta, timezone
+from html import escape
 from pathlib import Path
 
 import pandas as pd
 
-from kfg import fetch
+from kfg import fetch, og
 from kfg import indicators as ind
 
 ROOT = Path(__file__).resolve().parent
-OUT = ROOT / "docs" / "data.json"
+DOCS = ROOT / "docs"
+SITE_URL = os.environ.get("SITE_URL", "https://korea-feargreed.vercel.app")
+KST = timezone(timedelta(hours=9))
 BOND_ETF = "148070"  # KOSEF 국고채10년
 INVERSE_ETFS = ["114800", "252670"]  # KODEX 인버스, KODEX 200선물인버스2X
 LEVERAGE_ETF = "122630"  # KODEX 레버리지
@@ -51,10 +58,11 @@ def main():
     days = kospi.index
     wide = {f: pd.DataFrame({c: df[f] for c, df in stocks.items()}).reindex(days)
             for f in ["High", "Low", "Close", "Volume"]}
+    counts = ind.high_low_counts(wide["High"], wide["Low"], wide["Close"])
 
     raw = pd.DataFrame({
         "momentum": ind.momentum(kospi),
-        "high_low": ind.high_low(wide["High"], wide["Low"], wide["Close"]),
+        "high_low": ind.high_low(counts),
         "breadth": ind.breadth(wide["Close"], wide["Volume"]),
         "volatility": ind.volatility(kospi),
         "inverse": ind.inverse_demand(inverse, leverage),
@@ -69,20 +77,49 @@ def main():
     scores = ind.score(raw)
     total = scores.mean(axis=1, skipna=False).dropna()
     scores, raw = scores.loc[total.index], raw.loc[total.index]
-    write_json(kospi.loc[total.index], raw, scores, total)
-    print(f"완료: {total.index[-1].date()} 점수 {total.iloc[-1]:.0f} ({ind.label(total.iloc[-1])}), {time.time() - t0:.0f}초")
+    last = total.index[-1]
+    ctx = {
+        "hi": int(counts.loc[last, "hi"]),
+        "lo": int(counts.loc[last, "lo"]),
+        "down_share": float(ind.down_volume_share(wide["Close"], wide["Volume"]).loc[last]),
+        "breadth_above_avg": bool(raw["breadth"].iloc[-1] >= raw["breadth"].iloc[-252:].mean()),
+        "credit_avg": float(raw["credit"].iloc[-252:].mean()) if "credit" in raw else None,
+    }
+    data = make_data(kospi.loc[total.index], raw, scores, total, ctx)
+    (DOCS / "data.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    og.render_card(DOCS / "og.png", data["score"], data["label"], data["summary"], data["updated"])
+    update_meta(DOCS / "index.html", data)
+    print(f"완료: {last.date()} 점수 {total.iloc[-1]:.0f} ({ind.label(total.iloc[-1])}), {data['summary']}, {time.time() - t0:.0f}초")
 
 
-def write_json(kospi, raw, scores, total):
+def make_data(kospi, raw, scores, total, ctx):
     last = total.index[-1]
 
     def ago(days):
         return round(float(total.loc[: last - pd.DateOffset(days=days)].iloc[-1]), 1)
 
-    data = {
+    indicators = [
+        {
+            "key": k,
+            "name": ind.SPECS[k][0],
+            "desc": ind.SPECS[k][1],
+            "unit": ind.SPECS[k][2],
+            "raw": round(float(raw[k].iloc[-1]), 2),
+            "text": ind.plain_text(k, float(raw[k].iloc[-1]), ctx),
+            "score": round(float(scores[k].iloc[-1]), 1),
+            "label": ind.label(scores[k].iloc[-1]),
+            "history": [round(float(v), 1) for v in scores[k].iloc[-252:]],
+        }
+        for k in scores.columns
+    ]
+    label = ind.label(total.iloc[-1])
+    return {
         "updated": last.strftime("%Y-%m-%d"),
+        "generated_at": datetime.now(KST).strftime("%Y-%m-%d %H:%M"),
         "score": round(float(total.iloc[-1]), 1),
-        "label": ind.label(total.iloc[-1]),
+        "label": label,
+        "mood": ind.MOODS[label],
+        "summary": ind.summary([i["label"] for i in indicators]),
         "kospi": round(float(kospi.iloc[-1]), 2),
         "compare": {
             "전일": round(float(total.iloc[-2]), 1),
@@ -90,27 +127,33 @@ def write_json(kospi, raw, scores, total):
             "1개월 전": ago(30),
             "1년 전": ago(365),
         },
-        "indicators": [
-            {
-                "key": k,
-                "name": ind.SPECS[k][0],
-                "desc": ind.SPECS[k][1],
-                "unit": ind.SPECS[k][2],
-                "raw": round(float(raw[k].iloc[-1]), 2),
-                "score": round(float(scores[k].iloc[-1]), 1),
-                "label": ind.label(scores[k].iloc[-1]),
-                "history": [round(float(v), 1) for v in scores[k].iloc[-252:]],
-            }
-            for k in scores.columns
-        ],
+        "indicators": indicators,
         "history": {
             "dates": [d.strftime("%Y-%m-%d") for d in total.index],
             "score": [round(float(v), 1) for v in total],
             "kospi": [round(float(v), 2) for v in kospi],
         },
     }
-    OUT.parent.mkdir(exist_ok=True)
-    OUT.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def update_meta(path: Path, data: dict):
+    """링크 미리보기(카카오톡·X 등)가 읽는 메타 태그에 오늘 점수와 상태를 넣는다."""
+    title = f"한국 공포·탐욕 지수 {data['score']:.0f}점 · {data['label']}"
+    desc = f"{data['updated']} 장 마감 기준 · {data['summary']}. {data['mood']}."
+    # 카카오톡은 이미지 주소별로 미리보기를 캐시하므로 날짜를 붙여 매일 새 이미지로 인식시킨다
+    image = f"{SITE_URL}/og.png?v={data['updated'].replace('-', '')}"
+    values = {
+        "og:title": title, "og:description": desc, "og:image": image, "og:url": f"{SITE_URL}/",
+        "twitter:title": title, "twitter:description": desc, "twitter:image": image,
+        "description": desc,
+    }
+    html = path.read_text(encoding="utf-8")
+    for key, value in values.items():
+        pattern = rf'(<meta (?:property|name)="{re.escape(key)}" content=")[^"]*(")'
+        html, n = re.subn(pattern, lambda m: m.group(1) + escape(value) + m.group(2), html)
+        if n != 1:
+            raise ValueError(f"index.html 에서 메타 태그 {key} 를 찾지 못했습니다")
+    path.write_text(html, encoding="utf-8")
 
 
 if __name__ == "__main__":
