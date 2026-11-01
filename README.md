@@ -33,7 +33,7 @@ python -m http.server -d docs 8000
 
 ## 자동 갱신
 
-`.github/workflows/update.yml`이 GitHub Actions에서 평일 16:30 KST(장 마감 반영)와 다음 날 08:30 KST(회사채 금리 반영 후 확정)에 `build.py`를 돌리고 `docs/data.json`을 커밋합니다. 저장소 설정에서 GitHub Pages를 `docs/` 폴더로 지정하고, Secrets에 `ECOS_API_KEY`를 넣으면 됩니다.
+`.github/workflows/update.yml`이 GitHub Actions에서 평일 16:30 KST(장 마감 반영)와 다음 날 08:30 KST(회사채 금리 반영 후 확정)에 `build.py`를 돌리고 `docs/`의 결과물(data.json, og.png, index.html)을 커밋합니다. 커밋이 올라가면 Vercel이 자동으로 다시 배포합니다. 저장소 설정에서 GitHub Pages를 `docs/` 폴더로 지정하고, Secrets에 `ECOS_API_KEY`를 넣으면 됩니다.
 
 참고용 지표이며 투자 권유가 아닙니다.
 
