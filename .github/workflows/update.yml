@@ -1,0 +1,41 @@
+name: 지수 갱신
+
+on:
+  schedule:
+    - cron: "30 7 * * 1-5"   # 평일 16:30 KST: 장 마감 후 가격 지표 반영
+    - cron: "30 23 * * 1-5"  # 화~토 08:30 KST: 전 영업일 회사채 금리(ECOS)까지 반영해 확정
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      # 종목별 일봉 캐시(data/prices)는 저장소에 올리지 않고 Actions 캐시로 이어 쓴다
+      - uses: actions/cache@v4
+        with:
+          path: data/prices
+          key: prices-${{ github.run_id }}
+          restore-keys: prices-
+
+      - run: python build.py
+        env:
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+
+      - name: 결과 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data.json
+          git diff --cached --quiet || git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push

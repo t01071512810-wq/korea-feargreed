@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>한국 공포·탐욕 지수</title>
+<meta name="description" content="KOSPI·KOSDAQ 시장 심리를 0~100으로 나타낸 한국판 Fear & Greed Index">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Binance 디자인 토큰 (VoltAgent/awesome-design-md · binance) */
+:root {
+  color-scheme: dark;
+  --primary: #fcd535; --primary-active: #f0b90b; --on-primary: #181a20;
+  --canvas: #0b0e11; --card: #1e2329; --elevated: #2b3139; --hairline: #2b3139;
+  --body: #eaecef; --on-dark: #ffffff; --muted: #707a8a; --muted-strong: #929aa5;
+  --up: #0ecb81; --down: #f6465d;
+  /* 공포→탐욕 5단계: 하락 빨강 ↔ 중립 회색 ↔ 상승 초록 */
+  --b0: #f6465d; --b1: #9c3a48; --b2: #474d57; --b3: #17895c; --b4: #0ecb81;
+  --sans: "Inter", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --num: "IBM Plex Sans", "Inter", "Noto Sans KR", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--canvas); color: var(--body);
+  font: 400 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased;
+}
+.num { font-family: var(--num); font-variant-numeric: tabular-nums; }
+
+nav { height: 64px; border-bottom: 1px solid var(--hairline); }
+nav .in { max-width: 1280px; margin: 0 auto; height: 100%; padding: 0 16px; display: flex; align-items: center; gap: 24px; }
+.brand { display: flex; align-items: center; gap: 8px; color: var(--primary); font-weight: 700; font-size: 18px; letter-spacing: -0.3px; text-decoration: none; }
+.brand svg { flex: none; }
+.ticker { margin-left: auto; display: flex; gap: 24px; font-size: 14px; }
+.ticker .k { color: var(--muted); margin-right: 8px; font-weight: 500; }
+.ticker .v { color: var(--on-dark); font-weight: 500; }
+@media (max-width: 560px) { .ticker .hide-sm { display: none; } }
+
+main { max-width: 1280px; margin: 0 auto; padding: 32px 16px 80px; }
+.hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; margin-bottom: 24px; }
+.hero h1 { margin: 0; font-size: 40px; font-weight: 700; line-height: 1.15; letter-spacing: -0.5px; color: var(--on-dark); }
+.hero h1 em { font-style: normal; color: var(--primary); }
+.hero p { margin: 4px 0 0; color: var(--muted-strong); font-size: 14px; }
+.updated { color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) { .hero h1 { font-size: 32px; } }
+
+.card { background: var(--card); border-radius: 12px; padding: 24px; }
+.card h2 { margin: 0 0 16px; font-size: 20px; font-weight: 600; color: var(--on-dark); line-height: 1.35; }
+.grid-top { display: grid; grid-template-columns: 8fr 4fr; gap: 24px; }
+@media (max-width: 900px) { .grid-top { grid-template-columns: 1fr; } }
+section { margin-top: 24px; }
+
+.gauge-card { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: center; gap: 24px; }
+@media (max-width: 640px) { .gauge-card { grid-template-columns: 1fr; text-align: center; } }
+.gauge-card svg { width: 100%; height: auto; display: block; }
+.stat-label { color: var(--muted); font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
+.stat { font-size: 64px; font-weight: 700; line-height: 1.05; letter-spacing: -1px; color: var(--primary); margin: 4px 0; }
+.rating { display: inline-flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; color: var(--on-dark); }
+.delta { margin-top: 12px; font-size: 14px; color: var(--muted-strong); }
+.up { color: var(--up); } .down { color: var(--down); }
+
+.compare ul { list-style: none; margin: 0; padding: 0; }
+.compare li { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--hairline); }
+.compare li:first-child { border-top: 0; padding-top: 0; }
+.compare .when { color: var(--muted-strong); }
+.compare .r { display: flex; align-items: center; gap: 12px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--body); }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.score-box { min-width: 44px; text-align: center; padding: 4px 8px; border-radius: 4px; background: var(--elevated); color: var(--on-dark); font-weight: 600; font-size: 16px; }
+
+.chart-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.chart-head h2 { margin: 0; }
+.ranges { display: flex; gap: 4px; background: var(--canvas); padding: 4px; border-radius: 8px; }
+.ranges button {
+  font: 600 13px/1 var(--sans); padding: 8px 12px; border-radius: 6px; cursor: pointer;
+  border: 0; background: transparent; color: var(--muted-strong);
+}
+.ranges button:hover { color: var(--on-dark); }
+.ranges button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart-title { font-size: 12px; font-weight: 500; color: var(--muted); margin: 8px 0 4px; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--elevated); border-radius: 8px;
+  padding: 10px 12px; font-size: 13px; white-space: nowrap; display: none; z-index: 2; color: var(--body);
+}
+.tip .d { color: var(--muted-strong); margin-bottom: 4px; }
+.tip b { color: var(--on-dark); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; }
+
+.ind-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.ind { display: flex; flex-direction: column; }
+.ind h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--on-dark); }
+.ind .desc { font-size: 13px; color: var(--muted); margin: 4px 0 16px; }
+.ind .row { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+.ind .score { font-size: 32px; font-weight: 700; color: var(--on-dark); line-height: 1.1; }
+.ind .raw { font-size: 13px; color: var(--muted-strong); margin-top: 8px; }
+.bar { position: relative; height: 6px; border-radius: 3px; margin: 12px 0 0; display: flex; gap: 2px; }
+.bar span { height: 100%; border-radius: 3px; }
+.bar i { position: absolute; top: -5px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: var(--on-dark); box-shadow: 0 0 0 2px var(--card); }
+.spark { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.spark .t { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.spark svg { width: 100%; height: 40px; display: block; }
+
+.method { color: var(--muted-strong); }
+.method ol { padding-left: 20px; margin: 0 0 12px; }
+.method li { margin: 6px 0; }
+.method p { margin: 0; }
+footer { border-top: 1px solid var(--hairline); }
+footer .in { max-width: 1280px; margin: 0 auto; padding: 24px 16px 40px; font-size: 13px; color: var(--muted); }
+.err { color: var(--down); }
+</style>
+</head>
+<body>
+<nav>
+  <div class="in">
+    <a class="brand" href="./">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0-9 9h3a6 6 0 0 1 12 0h3a9 9 0 0 0-9-9Z" fill="currentColor"/><path d="M12 12l4.5-4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+      K-Fear &amp; Greed
+    </a>
+    <div class="ticker num">
+      <span><span class="k">KOSPI</span><span class="v" id="t-kospi">–</span> <span id="t-chg"></span></span>
+      <span class="hide-sm"><span class="k">지수</span><span class="v" id="t-score">–</span></span>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="hero">
+    <div>
+      <h1>한국 <em>공포·탐욕</em> 지수</h1>
+      <p>KOSPI·KOSDAQ 시장 심리를 0~100으로. 지금 시장은 무엇에 움직이고 있을까요?</p>
+    </div>
+    <div class="updated" id="meta">불러오는 중…</div>
+  </div>
+
+  <div class="grid-top">
+    <div class="card gauge-card">
+      <svg id="gauge" viewBox="-90 10 620 240" role="img" aria-labelledby="gauge-desc"><desc id="gauge-desc"></desc></svg>
+      <div>
+        <div class="stat-label">현재 지수</div>
+        <div class="stat num" id="score">–</div>
+        <div class="rating" id="label"></div>
+        <div class="delta num" id="delta"></div>
+      </div>
+    </div>
+    <div class="card compare">
+      <h2>이전 값과 비교</h2>
+      <ul id="compare"></ul>
+    </div>
+  </div>
+
+  <section class="card">
+    <div class="chart-head">
+      <h2>지수 추이</h2>
+      <div class="ranges" role="group" aria-label="기간">
+        <button data-days="30">1M</button>
+        <button data-days="182">6M</button>
+        <button data-days="365" aria-pressed="true">1Y</button>
+        <button data-days="1095">3Y</button>
+        <button data-days="0">전체</button>
+      </div>
+    </div>
+    <div class="chart" id="hist">
+      <div class="chart-title">공포·탐욕 지수 (0~100)</div>
+      <svg id="hist-score" height="260"></svg>
+      <div class="chart-title">KOSPI</div>
+      <svg id="hist-kospi" height="120"></svg>
+      <div class="tip num" id="tip"></div>
+    </div>
+    <div class="legend" id="band-legend"></div>
+  </section>
+
+  <section>
+    <h2 style="margin:40px 0 16px;font-size:24px;font-weight:600;color:var(--on-dark)">구성 지표</h2>
+    <div class="ind-grid" id="indicators"></div>
+  </section>
+
+  <section class="card method">
+    <h2>계산 방법</h2>
+    <ol>
+      <li>각 지표의 원시값을 매일 계산합니다. 값이 클수록 탐욕이 되도록 방향을 맞춥니다(변동성·신용 스프레드는 반대).</li>
+      <li>최근 1년(252거래일) 안에서 오늘 값이 몇 번째 백분위인지를 0~100점으로 씁니다.</li>
+      <li>지표 점수를 똑같은 비중으로 평균한 값이 최종 지수입니다.</li>
+      <li>평일 16:30(장 마감 반영)과 다음 날 08:30(회사채 금리 반영 후 확정)에 갱신됩니다.</li>
+    </ol>
+    <p>CNN Fear &amp; Greed Index의 구성을 한국 시장 데이터로 옮겼습니다. VKOSPI·풋/콜 비율은 공개 데이터를 쓸 수 없어 각각 KOSPI 실현변동성으로 대신하거나 제외했습니다.
+      52주 신고가·신저가와 시장 폭은 현재 상장 종목만으로 계산하므로 과거 구간에는 생존 편향이 있습니다.</p>
+  </section>
+</main>
+
+<footer><div class="in">데이터: KRX·네이버 금융(FinanceDataReader), 한국은행 ECOS. 이 지수는 참고용이며 투자 권유가 아닙니다.</div></footer>
+
+<script>
+const BANDS = [
+  { max: 25, name: "극단적 공포", v: "--b0" },
+  { max: 45, name: "공포", v: "--b1" },
+  { max: 55, name: "중립", v: "--b2" },
+  { max: 75, name: "탐욕", v: "--b3" },
+  { max: 100, name: "극단적 탐욕", v: "--b4" },
+];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const band = s => BANDS.find(b => s < b.max) || BANDS[4];
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs = {}, parent) => {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+};
+const fmt = (v, d = 0) => v.toLocaleString("ko-KR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const signed = (v, d = 0) => (v > 0 ? "+" : "") + fmt(v, d);
+const chip = b => `<span class="chip"><span class="dot" style="background:var(${b.v})"></span>${b.name}</span>`;
+let DATA, RANGE = 365;
+
+function gauge(score) {
+  const svg = document.getElementById("gauge");
+  svg.querySelectorAll(":scope > :not(desc)").forEach(n => n.remove());
+  const cx = 220, cy = 220, r = 180, w = 30;
+  const pt = (s, rad) => {
+    const a = Math.PI * (1 - s / 100);
+    return [cx + rad * Math.cos(a), cy - rad * Math.sin(a)];
+  };
+  let lo = 0;
+  BANDS.forEach(b => {
+    // 구간 사이에 2px 간격
+    const a0 = lo + 0.35, a1 = b.max - 0.35;
+    const [x0, y0] = pt(a0, r), [x1, y1] = pt(a1, r);
+    const [x2, y2] = pt(a1, r - w), [x3, y3] = pt(a0, r - w);
+    const on = score >= lo && score < b.max || (b.max === 100 && score >= lo);
+    el("path", {
+      d: `M${x0},${y0} A${r},${r} 0 0 1 ${x1},${y1} L${x2},${y2} A${r - w},${r - w} 0 0 0 ${x3},${y3} Z`,
+      fill: css(b.v), opacity: on ? 1 : 0.45,
+    }, svg);
+    const mid = (lo + b.max) / 2;
+    const [lx, ly] = pt(mid, r + 10);
+    const anchor = mid < 40 ? "end" : mid > 60 ? "start" : "middle";
+    const t = el("text", { x: lx, y: ly, "text-anchor": anchor, "font-size": 17, "font-weight": on ? 600 : 500, fill: css(on ? "--on-dark" : "--muted") }, svg);
+    t.textContent = b.name;
+    lo = b.max;
+  });
+  [0, 25, 50, 75, 100].forEach(s => {
+    const [x, y] = pt(s, r - w - 14);
+    const t = el("text", { x, y: y + 4, "text-anchor": "middle", "font-size": 15, fill: css("--muted"), "font-family": css("--num") }, svg);
+    t.textContent = s;
+  });
+  const [nx, ny] = pt(score, r - w - 30);
+  el("line", { x1: cx, y1: cy, x2: nx, y2: ny, stroke: css("--primary"), "stroke-width": 5, "stroke-linecap": "round" }, svg);
+  el("circle", { cx, cy, r: 11, fill: css("--primary") }, svg);
+  el("circle", { cx, cy, r: 4, fill: css("--card") }, svg);
+  document.getElementById("gauge-desc").textContent = `현재 지수 ${fmt(score)}점, ${band(score).name}`;
+}
+
+function compare(d) {
+  document.getElementById("compare").innerHTML = Object.entries(d.compare).map(([when, s]) =>
+    `<li><span class="when">${when}</span><span class="r">${chip(band(s))}<span class="score-box num">${fmt(s)}</span></span></li>`
+  ).join("");
+}
+
+function lineChart(svg, xs, ys, { min, max, bands = false, ticks, color }) {
+  svg.innerHTML = "";
+  const W = svg.clientWidth, H = +svg.getAttribute("height");
+  const m = { l: 48, r: 8, t: 8, b: 24 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const x = i => m.l + (xs.length < 2 ? 0 : (i / (xs.length - 1)) * iw);
+  const y = v => m.t + ih - ((v - min) / (max - min)) * ih;
+  if (bands) {
+    let lo = 0;
+    BANDS.forEach(b => {
+      el("rect", { x: m.l, y: y(b.max), width: iw, height: y(lo) - y(b.max), fill: css(b.v), opacity: 0.1 }, svg);
+      lo = b.max;
+    });
+  }
+  const label = { "font-size": 12, fill: css("--muted"), "font-family": css("--num") };
+  ticks.forEach(t => {
+    el("line", { x1: m.l, x2: m.l + iw, y1: y(t), y2: y(t), stroke: css("--hairline"), "stroke-width": 1 }, svg);
+    el("text", { ...label, x: m.l - 8, y: y(t) + 4, "text-anchor": "end" }, svg).textContent = fmt(t);
+  });
+  const nx = W < 520 ? 2 : 4; // 좁은 화면에서는 날짜 눈금 3개
+  for (let k = 0; k <= nx; k++) {
+    const i = Math.round((k / nx) * (xs.length - 1));
+    el("text", { ...label, x: x(i), y: H - 4, "text-anchor": k === 0 ? "start" : k === nx ? "end" : "middle" }, svg)
+      .textContent = xs[i].slice(0, RANGE && RANGE <= 182 ? 10 : 7);
+  }
+  const d = ys.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  el("path", { d, fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round" }, svg);
+  const cross = el("line", { y1: m.t, y2: m.t + ih, stroke: css("--muted"), "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
+  const dot = el("circle", { r: 4.5, fill: color, stroke: css("--card"), "stroke-width": 2, visibility: "hidden" }, svg);
+  return {
+    x, m, iw,
+    show(i) {
+      cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i));
+      dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(ys[i]));
+      cross.setAttribute("visibility", "visible"); dot.setAttribute("visibility", "visible");
+    },
+    hide() { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); },
+  };
+}
+
+function niceTicks(lo, hi, n = 4) {
+  const step0 = (hi - lo) / n, p = 10 ** Math.floor(Math.log10(step0));
+  const step = [1, 2, 2.5, 5, 10].map(k => k * p).find(s => s >= step0);
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) out.push(v);
+  return out;
+}
+
+function history() {
+  const h = DATA.history;
+  let start = 0;
+  if (RANGE) {
+    const cut = new Date(h.dates.at(-1));
+    cut.setDate(cut.getDate() - RANGE);
+    start = h.dates.findIndex(d => new Date(d) >= cut);
+  }
+  const xs = h.dates.slice(start), s = h.score.slice(start), k = h.kospi.slice(start);
+  const kmin = Math.min(...k), kmax = Math.max(...k), pad = (kmax - kmin) * 0.08;
+  const a = lineChart(document.getElementById("hist-score"), xs, s,
+    { min: 0, max: 100, bands: true, ticks: [0, 25, 50, 75, 100], color: css("--primary") });
+  const b = lineChart(document.getElementById("hist-kospi"), xs, k,
+    { min: kmin - pad, max: kmax + pad, ticks: niceTicks(kmin - pad, kmax + pad, 3), color: css("--muted-strong") });
+
+  const wrap = document.getElementById("hist"), tip = document.getElementById("tip");
+  const move = ev => {
+    const r = wrap.getBoundingClientRect();
+    const px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    const i = Math.max(0, Math.min(xs.length - 1, Math.round(((px - a.m.l) / a.iw) * (xs.length - 1))));
+    a.show(i); b.show(i);
+    const bd = band(s[i]);
+    tip.innerHTML = `<div class="d">${xs[i]}</div>
+      <div><span class="dot" style="background:var(${bd.v})"></span> 지수 <b>${fmt(s[i])}</b> · ${bd.name}</div>
+      <div>KOSPI <b>${fmt(k[i], 2)}</b></div>`;
+    tip.style.display = "block";
+    const tx = a.x(i);
+    tip.style.left = (tx > r.width - 200 ? tx - tip.offsetWidth - 12 : tx + 12) + "px";
+    tip.style.top = "48px";
+  };
+  wrap.onmousemove = move; wrap.ontouchmove = move;
+  wrap.onmouseleave = () => { a.hide(); b.hide(); tip.style.display = "none"; };
+}
+
+function indicators(d) {
+  const grid = document.getElementById("indicators");
+  grid.innerHTML = "";
+  const widths = [25, 20, 10, 20, 25];
+  d.indicators.forEach(ind => {
+    const card = document.createElement("div");
+    card.className = "card ind";
+    card.innerHTML = `<h3>${ind.name}</h3><div class="desc">${ind.desc}</div>
+      <div class="row"><span class="score num">${fmt(ind.score)}</span>${chip(band(ind.score))}</div>
+      <div class="bar" role="img" aria-label="${fmt(ind.score)}점">
+        ${BANDS.map((b, i) => `<span style="flex:${widths[i]};background:var(${b.v})"></span>`).join("")}
+        <i style="left:${ind.score}%"></i></div>
+      <div class="raw num">현재 값 ${fmt(ind.raw, 2)}${ind.unit}</div>
+      <div class="spark"><div class="t">최근 1년 점수</div><svg viewBox="0 0 300 40" preserveAspectRatio="none"></svg></div>`;
+    grid.appendChild(card);
+    const svg = card.querySelector("svg"), hs = ind.history;
+    el("line", { x1: 0, x2: 300, y1: 20, y2: 20, stroke: css("--hairline"), "stroke-width": 1, "vector-effect": "non-scaling-stroke" }, svg);
+    const p = hs.map((v, i) => `${i ? "L" : "M"}${(i / (hs.length - 1)) * 300},${38 - (v / 100) * 36}`).join("");
+    el("path", { d: p, fill: "none", stroke: css("--primary"), "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }, svg);
+  });
+}
+
+function render() {
+  const d = DATA, b = band(d.score), k = d.history.kospi;
+  const kchg = (k.at(-1) / k.at(-2) - 1) * 100;
+  const dprev = d.score - d.compare["전일"];
+  const cls = v => (v > 0 ? "up" : v < 0 ? "down" : "");
+  document.getElementById("meta").textContent = `${d.updated} 장 마감 기준`;
+  document.getElementById("t-kospi").textContent = fmt(d.kospi, 2);
+  document.getElementById("t-chg").innerHTML = `<span class="${cls(kchg)}">${signed(kchg, 2)}%</span>`;
+  document.getElementById("t-score").textContent = fmt(d.score);
+  document.getElementById("score").textContent = fmt(d.score);
+  document.getElementById("label").innerHTML = `<span class="dot" style="background:var(${b.v});width:10px;height:10px"></span>${b.name}`;
+  document.getElementById("delta").innerHTML = `전일 대비 <span class="${cls(dprev)}">${signed(dprev, 1)}</span>`;
+  gauge(d.score);
+  compare(d);
+  history();
+  indicators(d);
+  document.getElementById("band-legend").innerHTML = BANDS.map(chip).join("");
+}
+
+document.querySelectorAll(".ranges button").forEach(btn => btn.onclick = () => {
+  document.querySelectorAll(".ranges button").forEach(b => b.setAttribute("aria-pressed", b === btn));
+  RANGE = +btn.dataset.days;
+  history();
+});
+window.addEventListener("resize", () => DATA && history());
+
+fetch("data.json", { cache: "no-store" }).then(r => r.json()).then(d => { DATA = d; render(); })
+  .catch(() => { document.getElementById("meta").innerHTML = '<span class="err">data.json을 불러오지 못했습니다. python build.py 를 먼저 실행하세요.</span>'; });
+</script>
+</body>
+</html>
