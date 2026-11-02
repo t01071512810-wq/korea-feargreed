@@ -1,10 +1,18 @@
 name: 지수 갱신
 
 on:
+  # GitHub 예약 실행은 붐빌 때 늦거나 빠질 수 있어(공식 문서) 예비 시각을 둔다. 여러 번 돌아도 결과는 같다.
   schedule:
     - cron: "30 7 * * 1-5"   # 평일 16:30 KST: 장 마감 후 가격 지표 반영
+    - cron: "15 8 * * 1-5"   # 평일 17:15 KST: 예비
+    - cron: "0 10 * * 1-5"   # 평일 19:00 KST: 예비
     - cron: "30 23 * * 1-5"  # 화~토 08:30 KST: 전 영업일 회사채 금리(ECOS)까지 반영해 확정
+    - cron: "45 23 * * 1-5"  # 화~토 08:45 KST: 예비 (09:00 장 시작 전)
   workflow_dispatch:
+
+concurrency:
+  group: update
+  cancel-in-progress: false
 
 permissions:
   contents: write

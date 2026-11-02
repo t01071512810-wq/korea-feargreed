@@ -38,11 +38,21 @@ def load_env(path=ROOT / ".env"):
             os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
+def market_closed_only(s: pd.Series) -> pd.Series:
+    """장중(15:40 KST 이전)에 실행되면 오늘의 미완성 일봉을 빼고, 마감된 날까지만 남긴다.
+    모든 지표가 이 날짜축(kospi.index)에 맞춰지므로 여기서 한 번만 자르면 된다."""
+    now = datetime.now(KST)
+    today = pd.Timestamp(now.date())
+    if len(s) and s.index[-1] >= today and (now.hour, now.minute) < (15, 40):
+        return s[s.index < today]
+    return s
+
+
 def main():
     load_env()
     t0 = time.time()
     print("지수·ETF 수집")
-    kospi = fetch.series("KS11")["Close"]
+    kospi = market_closed_only(fetch.series("KS11")["Close"])
     bond = fetch.series(BOND_ETF)["Close"].reindex(kospi.index).ffill()
 
     def traded_value(code):
