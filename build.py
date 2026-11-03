@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from kfg import fetch, og
+from kfg import fetch, krx, og
 from kfg import indicators as ind
 
 ROOT = Path(__file__).resolve().parent
@@ -52,7 +52,7 @@ def main():
     load_env()
     t0 = time.time()
     print("지수·ETF 수집")
-    # 시장 변동성의 1000일 평균을 2017년부터 쓰려고 KOSPI만 더 일찍부터 받는다(종목 데이터는 2017년부터)
+    # 시장 변동성의 750일(약 3년) 평균을 2017년부터 쓰려고 KOSPI만 더 일찍부터 받는다(종목 데이터는 2017년부터)
     kospi = market_closed_only(fetch.series("KS11", "2012-01-01")["Close"])
     bond = fetch.series(BOND_ETF)["Close"].reindex(kospi.index).ffill()
 
@@ -71,12 +71,30 @@ def main():
             for f in ["High", "Low", "Close", "Volume"]}
     counts = ind.high_low_counts(wide["High"], wide["Low"], wide["Close"])
 
+    # VKOSPI·풋/콜은 KRX OPEN API에서. KRX는 그날 데이터를 저녁~다음 날 아침에 공개하므로
+    # 오후 실행에서는 전날 값을 최대 3거래일까지만 이어 쓰고, 키가 없으면 대체 지표를 쓴다
+    print("KRX 수집")
+    krx_df = krx.update(days)
+    if krx_df is not None and krx_df["vkospi"].notna().any() and krx_df["put_val"].notna().any():
+        vk = krx_df["vkospi"].dropna()
+        pcd = krx_df[["put_val", "call_val"]].dropna()
+        vol_ind = {
+            "vkospi": ind.vkospi_level(vk).reindex(days).ffill(limit=3),
+            "put_call": ind.put_call(pcd["put_val"], pcd["call_val"]).reindex(days).ffill(limit=3),
+        }
+        vkospi_now = float(vk.reindex(days).ffill(limit=3).iloc[-1])
+        krx_stale = vk.index[-1] < days[-1]
+    else:
+        print("  KRX_API_KEY 없음: 실현변동성·인버스 ETF 대체 지표 사용")
+        vol_ind = {"volatility": ind.volatility(kospi), "inverse": ind.inverse_demand(inverse, leverage)}
+        vkospi_now = None
+        krx_stale = False
+
     raw = pd.DataFrame({
         "momentum": ind.momentum(kospi),
         "high_low": ind.high_low(counts),
         "breadth": ind.breadth(wide["Close"], wide["Volume"]),
-        "volatility": ind.volatility(kospi),
-        "inverse": ind.inverse_demand(inverse, leverage),
+        **vol_ind,
         "safe_haven": ind.safe_haven(kospi, bond),
     })
     spread = fetch.ecos_credit_spread()
@@ -95,6 +113,9 @@ def main():
         "down_share": float(ind.down_volume_share(wide["Close"], wide["Volume"]).loc[last]),
         "breadth_above_avg": bool(raw["breadth"].iloc[-1] >= raw["breadth"].iloc[-252:].mean()),
         "credit_avg": float(raw["credit"].iloc[-252:].mean()) if "credit" in raw else None,
+        "vkospi": vkospi_now,
+        "krx_stale": krx_stale,
+        "pc_avg": float(raw["put_call"].iloc[-252:].mean()) if "put_call" in raw else None,
     }
     data = make_data(kospi.loc[total.index], raw, scores, total, ctx)
     (DOCS / "data.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")

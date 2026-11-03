@@ -4,20 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>한국 공포·탐욕 지수</title>
-<meta name="description" content="2026-11-03 장 마감 기준 · 7개 지표 모두 극단적 공포. 시장 전반에 두려움이 크게 퍼져 있어요.">
+<meta name="description" content="2026-11-03 장 마감 기준 · 7개 지표 중 6개가 극단적 공포. 시장 전반에 두려움이 크게 퍼져 있어요.">
 <!-- 링크 미리보기: 아래 content 값은 build.py 가 매일 오늘 점수로 바꿔 쓴다 -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="K-Fear &amp; Greed">
 <meta property="og:locale" content="ko_KR">
-<meta property="og:title" content="한국 공포·탐욕 지수 12점 · 극단적 공포">
-<meta property="og:description" content="2026-11-03 장 마감 기준 · 7개 지표 모두 극단적 공포. 시장 전반에 두려움이 크게 퍼져 있어요.">
+<meta property="og:title" content="한국 공포·탐욕 지수 25점 · 극단적 공포">
+<meta property="og:description" content="2026-11-03 장 마감 기준 · 7개 지표 중 6개가 극단적 공포. 시장 전반에 두려움이 크게 퍼져 있어요.">
 <meta property="og:url" content="https://korea-feargreed.vercel.app/">
 <meta property="og:image" content="https://korea-feargreed.vercel.app/og.png?v=20261103">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="한국 공포·탐욕 지수 12점 · 극단적 공포">
-<meta name="twitter:description" content="2026-11-03 장 마감 기준 · 7개 지표 모두 극단적 공포. 시장 전반에 두려움이 크게 퍼져 있어요.">
+<meta name="twitter:title" content="한국 공포·탐욕 지수 25점 · 극단적 공포">
+<meta name="twitter:description" content="2026-11-03 장 마감 기준 · 7개 지표 중 6개가 극단적 공포. 시장 전반에 두려움이 크게 퍼져 있어요.">
 <meta name="twitter:image" content="https://korea-feargreed.vercel.app/og.png?v=20261103">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
@@ -210,11 +210,11 @@ footer .in { max-width: 1280px; margin: 0 auto; padding: 24px 16px 40px; font-si
     <h2>계산 방법</h2>
     <ol>
       <li>각 지표의 원시값을 매일 계산합니다. 값이 클수록 탐욕이 되도록 방향을 맞춥니다(변동성·신용 스프레드는 반대).</li>
-      <li>최근 1년(252거래일) 안에서 오늘 값이 몇 번째 백분위인지를 0~100점으로 씁니다. 시장 변동성만은 장기 평균과 비교하려고 약 4년(1000거래일)을 기준으로 합니다.</li>
+      <li>최근 1년(252거래일) 안에서 오늘 값이 몇 번째 백분위인지를 0~100점으로 씁니다. 시장 변동성만은 장기 평균과 비교하려고 약 3년(750거래일)을 기준으로 합니다.</li>
       <li>지표 점수를 똑같은 비중으로 평균한 값이 최종 지수입니다.</li>
       <li>평일 16:30~19:00 사이(장 마감 반영)와 다음 날 08:30~08:45 사이(회사채 금리 반영 후 확정)에 갱신됩니다.</li>
     </ol>
-    <p>CNN Fear &amp; Greed Index의 구성을 한국 시장 데이터로 옮겼습니다. VKOSPI·풋/콜 비율은 KRX 인증키가 필요해 각각 KOSPI 실현변동성과 인버스·레버리지 ETF 거래대금 비율로 대신했습니다.
+    <p>CNN Fear &amp; Greed Index의 구성을 한국 시장 데이터로 옮겼습니다. VKOSPI와 코스피200 옵션 풋/콜 비율은 KRX OPEN API에서 받습니다. KRX는 그날 데이터를 저녁~다음 날 아침에 공개하므로, 장 마감 직후 갱신에서는 이 두 지표만 전날 값을 쓰고 다음 날 아침 갱신에서 확정됩니다.
       52주 신고가·신저가와 시장 폭은 현재 상장 종목만으로 계산하므로 과거 구간에는 생존 편향이 있습니다.</p>
   </section>
 </main>

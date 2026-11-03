@@ -21,7 +21,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 예약 실행은 늦게 시작될 수 있어, 예약된 시점이 아니라 지금의 main 최신 커밋에서 출발한다
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
@@ -39,11 +42,14 @@ jobs:
       - run: python build.py
         env:
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+          KRX_API_KEY: ${{ secrets.KRX_API_KEY }}
 
       - name: 결과 커밋
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/data.json docs/og.png docs/index.html
-          git diff --cached --quiet || git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push
+          git add docs/data.json docs/og.png docs/index.html data/krx_daily.csv
+          git diff --cached --quiet && exit 0
+          git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
+          # 그사이 다른 커밋이 올라왔으면 그 위에 이번 결과를 얹는다(겹치는 파일은 이번 결과로)
+          git push || { git pull --rebase -X theirs origin main && git push; }

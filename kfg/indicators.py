@@ -7,9 +7,9 @@ import pandas as pd
 
 WINDOW = 252  # 점수 환산에 쓰는 과거 구간(약 1년)
 MIN_PERIODS = 120
-# 지표별로 다른 구간을 쓰는 경우. 시장 변동성은 "장기 평균 대비 지금"을 보려고 약 4년으로 순위를 매긴다
-WINDOWS = {"volatility": (1000, 250)}
-LONG_VOL_DAYS = 1000
+# 지표별로 다른 구간을 쓰는 경우. 시장 변동성은 "장기 평균 대비 지금"을 보려고 약 3년으로 순위를 매긴다
+WINDOWS = {"vkospi": (750, 250), "volatility": (750, 250)}
+LONG_VOL_DAYS = 750  # 약 3년
 
 LABELS = [(25, "극단적 공포"), (45, "공포"), (55, "중립"), (75, "탐욕"), (101, "극단적 탐욕")]
 
@@ -63,9 +63,20 @@ def down_volume_share(close: pd.DataFrame, volume: pd.DataFrame, days: int = 10)
 
 
 def volatility(kospi: pd.Series) -> pd.Series:
-    """KOSPI 20일 실현변동성이 1000일(약 4년) 평균보다 몇 % 높은가. (VKOSPI 대용, 높을수록 공포)"""
+    """KOSPI 20일 실현변동성이 750일(약 3년) 평균보다 몇 % 높은가. (VKOSPI 대용, 높을수록 공포)"""
     vol = np.log(kospi).diff().rolling(20).std() * np.sqrt(252) * 100
     return (vol / vol.rolling(LONG_VOL_DAYS).mean() - 1) * 100
+
+
+def vkospi_level(vkospi: pd.Series) -> pd.Series:
+    """VKOSPI가 750일(약 3년) 평균보다 몇 % 높은가. (높을수록 공포)"""
+    return (vkospi / vkospi.rolling(LONG_VOL_DAYS, min_periods=LONG_VOL_DAYS).mean() - 1) * 100
+
+
+def put_call(put_val: pd.Series, call_val: pd.Series) -> pd.Series:
+    """코스피200 옵션 풋 거래대금 / 콜 거래대금 (5일 합계). 높을수록 공포.
+    거래량으로 세면 폭락 때 싸진 콜옵션 거래가 폭증해 오히려 비율이 내려가므로 거래대금을 쓴다."""
+    return put_val.rolling(5).sum() / call_val.rolling(5).sum()
 
 
 def safe_haven(kospi: pd.Series, bond: pd.Series) -> pd.Series:
@@ -79,11 +90,14 @@ def inverse_demand(inverse_value: pd.Series, leverage_value: pd.Series) -> pd.Se
 
 
 # key, 이름, 설명, 단위, 탐욕 방향(+1: 값이 클수록 탐욕, -1: 작을수록 탐욕)
+# vkospi·put_call 은 KRX OPEN API 데이터, volatility·inverse 는 KRX 데이터가 없을 때 쓰는 대체 지표
 SPECS = {
+    "vkospi": ("시장 변동성", "VKOSPI(코스피200 변동성지수)의 750일(약 3년) 평균 대비 수준", "%", -1),
+    "put_call": ("풋/콜 비율", "코스피200 옵션 풋 ÷ 콜 거래대금 5일 합계", "배", -1),
     "momentum": ("시장 모멘텀", "KOSPI와 125일 이동평균의 괴리율", "%", 1),
     "high_low": ("주가 강도", "52주 신고가 − 신저가 종목 비율 (KOSPI+KOSDAQ)", "%", 1),
     "breadth": ("시장 폭", "McClellan 거래량 합산지수 (상승·하락 종목 거래량)", "", 1),
-    "volatility": ("시장 변동성", "KOSPI 20일 실현변동성의 1000일(약 4년) 평균 대비 수준", "%", -1),
+    "volatility": ("시장 변동성", "KOSPI 20일 실현변동성의 750일(약 3년) 평균 대비 수준", "%", -1),
     "inverse": ("하락 베팅 수요", "인버스 ÷ 레버리지 ETF 거래대금 5일 합계 (풋/콜 비율 대용)", "배", -1),
     "safe_haven": ("안전자산 수요", "KOSPI − 국고채10년 ETF 20일 수익률 차", "%p", 1),
     "credit": ("신용 스프레드", "회사채 3년 AA− 금리 − 국고채 3년 금리 (ECOS)", "%p", -1),
@@ -113,6 +127,14 @@ def _more_less(v: float, more: str = "높음", less: str = "낮음") -> str:
 
 def plain_text(key: str, v: float, ctx: dict) -> str:
     """지표의 오늘 원시값을 처음 보는 사람도 읽을 수 있는 한 줄로."""
+    text = _plain_text(key, v, ctx)
+    # KRX는 그날 데이터를 저녁~다음 날 아침에 공개하므로, 아직이면 전날 값임을 밝힌다
+    if key in ("vkospi", "put_call") and ctx.get("krx_stale"):
+        text += " · 전일 기준"
+    return text
+
+
+def _plain_text(key: str, v: float, ctx: dict) -> str:
     if key == "momentum":
         return f"KOSPI가 125일 평균보다 {abs(v):.1f}% {_more_less(v)}"
     if key == "high_low":
@@ -123,7 +145,11 @@ def plain_text(key: str, v: float, ctx: dict) -> str:
         trend = "상승" if ctx["breadth_above_avg"] else "하락"
         return f"최근 10일 거래량 상승 {100 - down:.0f}% · 하락 {down:.0f}%, 누적 흐름은 {trend} 우세"
     if key == "volatility":
-        return f"주가 출렁임이 약 4년 평균의 {1 + v / 100:.1f}배"
+        return f"주가 출렁임이 약 3년 평균의 {1 + v / 100:.1f}배"
+    if key == "vkospi":
+        return f"VKOSPI {ctx['vkospi']:.1f} · 약 3년 평균의 {1 + v / 100:.1f}배"
+    if key == "put_call":
+        return f"하락 대비(풋)에 상승 기대(콜)의 {v:.2f}배 돈이 오감 (1년 평균 {ctx['pc_avg']:.2f}배)"
     if key == "inverse":
         return f"하락에 거는 ETF 거래가 상승에 거는 ETF의 {v:.2f}배"
     if key == "safe_haven":
