@@ -140,6 +140,7 @@ def make_data(kospi, raw, scores, total, ctx):
             "text": ind.plain_text(k, float(raw[k].iloc[-1]), ctx),
             "score": round(float(scores[k].iloc[-1]), 1),
             "label": ind.label(scores[k].iloc[-1]),
+            "rank": ind.rank_text(k, float(scores[k].iloc[-1])),
             "history": [round(float(v), 1) for v in scores[k].iloc[-252:]],
         }
         for k in scores.columns

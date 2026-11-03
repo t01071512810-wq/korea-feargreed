@@ -159,6 +159,15 @@ def _plain_text(key: str, v: float, ctx: dict) -> str:
     raise KeyError(key)
 
 
+def rank_text(key: str, score: float) -> str:
+    """점수(백분위)를 '1년 중 공포 쪽 상위 4%'처럼 순위로 풀어 쓴다."""
+    period = "약 3년" if key in WINDOWS else "1년"
+    if 45 <= score < 55:
+        return f"{period} 중 중간 수준"
+    side, pct = ("탐욕", 100 - score) if score >= 55 else ("공포", score)
+    return f"{period} 중 {side} 쪽 상위 {max(1, round(pct))}%"
+
+
 def summary(labels: list[str]) -> str:
     """'7개 지표 중 6개가 극단적 공포' 형식의 한 줄 요약. 같은 수면 더 극단적인 쪽을 고른다."""
     order = [name for _, name in LABELS]

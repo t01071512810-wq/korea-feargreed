@@ -122,6 +122,7 @@ section { margin-top: 24px; }
 .ind .desc { font-size: 13px; color: var(--muted); margin: 4px 0 16px; }
 .ind .row { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
 .ind .score { font-size: 32px; font-weight: 700; color: var(--on-dark); line-height: 1.1; }
+.ind .rank { font-size: 13px; color: var(--muted-strong); margin-top: 8px; }
 .ind .now { font-size: 14px; color: var(--body); margin-top: 10px; }
 .ind .now b { color: var(--muted); font-weight: 500; margin-right: 6px; }
 .bar { position: relative; height: 6px; border-radius: 3px; margin: 12px 0 0; display: flex; gap: 2px; }
@@ -211,6 +212,7 @@ footer .in { max-width: 1280px; margin: 0 auto; padding: 24px 16px 40px; font-si
     <ol>
       <li>각 지표의 원시값을 매일 계산합니다. 값이 클수록 탐욕이 되도록 방향을 맞춥니다(변동성·신용 스프레드는 반대).</li>
       <li>최근 1년(252거래일) 안에서 오늘 값이 몇 번째 백분위인지를 0~100점으로 씁니다. 시장 변동성만은 장기 평균과 비교하려고 약 3년(750거래일)을 기준으로 합니다.</li>
+      <li>그래서 지표 카드의 "1년 중 공포 쪽 상위 4%"는 지난 1년 중 오늘보다 더 공포 쪽이었던 날이 4%뿐이라는 뜻입니다. 75점 이상(극단적 탐욕)과 25점 미만(극단적 공포)은 각각 1년 중 상위 25% 안에 드는 드문 날을 말합니다.</li>
       <li>지표 점수를 똑같은 비중으로 평균한 값이 최종 지수입니다.</li>
       <li>평일 16:30~19:00 사이(장 마감 반영)와 다음 날 08:30~08:45 사이(회사채 금리 반영 후 확정)에 갱신됩니다.</li>
     </ol>
@@ -389,6 +391,7 @@ function indicators(d) {
       <div class="bar" role="img" aria-label="${fmt(ind.score)}점">
         ${BANDS.map((b, i) => `<span style="flex:${widths[i]};background:var(${b.v})"></span>`).join("")}
         <i style="left:${ind.score}%"></i></div>
+      <div class="rank">${ind.rank ?? ""}</div>
       <div class="now"><b>지금</b>${ind.text}</div>
       <div class="spark"><div class="t">최근 1년 점수</div><svg viewBox="0 0 300 40" preserveAspectRatio="none"></svg></div>`;
     grid.appendChild(card);
