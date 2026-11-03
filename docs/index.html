@@ -128,8 +128,32 @@ section { margin-top: 24px; }
 .bar { position: relative; height: 6px; border-radius: 3px; margin: 12px 0 0; display: flex; gap: 2px; }
 .bar span { height: 100%; border-radius: 3px; }
 .bar i { position: absolute; top: -5px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: var(--on-dark); box-shadow: 0 0 0 2px var(--card); }
-.spark { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
-.spark .t { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.spark { display: block; width: 100%; margin-top: 12px; padding: 12px 0 0; border: 0; border-top: 1px solid var(--hairline);
+  background: none; color: inherit; font: inherit; text-align: left; cursor: zoom-in; border-radius: 0; }
+.spark:hover svg path:last-child { stroke-width: 2.5; }
+.spark:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 4px; }
+.spark .t { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.spark .t span:last-child { color: var(--primary); }
+
+dialog#zoom { width: min(960px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 0; border-radius: 12px;
+  background: var(--card); color: var(--body); }
+dialog#zoom::backdrop { background: rgb(0 0 0 / 0.72); }
+.zoom-in { padding: 24px; }
+.zoom-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.zoom-head h2 { margin: 0; font-size: 20px; font-weight: 600; color: var(--on-dark); }
+.zoom-head .desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.zoom-close { flex: none; width: 36px; height: 36px; border: 0; border-radius: 6px; background: var(--elevated);
+  color: var(--on-dark); font-size: 22px; line-height: 1; cursor: pointer; }
+.zoom-close:hover { background: var(--hairline); color: var(--primary); }
+.zoom-read { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin: 16px 0 8px; padding: 12px 16px;
+  background: var(--canvas); border-radius: 8px; min-height: 52px; }
+.zoom-read .d { color: var(--muted-strong); font-size: 14px; }
+.zoom-read .s { font-size: 24px; font-weight: 700; color: var(--on-dark); }
+.zoom-read .v { color: var(--body); font-size: 14px; }
+#zoom-chart { touch-action: none; outline: none; }
+#zoom-chart:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 4px; }
+.zoom-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+@media (max-width: 560px) { .zoom-in { padding: 16px; } .zoom-read .s { font-size: 20px; } }
 .spark svg { width: 100%; height: 40px; display: block; }
 
 .method { color: var(--muted-strong); }
@@ -221,6 +245,19 @@ footer .in { max-width: 1280px; margin: 0 auto; padding: 24px 16px 40px; font-si
   </section>
 </main>
 
+<dialog id="zoom" aria-labelledby="zoom-title">
+  <div class="zoom-in">
+    <div class="zoom-head">
+      <div><h2 id="zoom-title"></h2><div class="desc" id="zoom-desc"></div></div>
+      <button class="zoom-close" id="zoom-close" aria-label="닫기">×</button>
+    </div>
+    <div class="zoom-read num" id="zoom-read" aria-live="polite"></div>
+    <div class="chart" id="zoom-chart" tabindex="0" aria-label="날짜별 점수. 좌우 화살표로 날짜 이동"><svg id="zoom-svg" height="300"></svg></div>
+    <div class="legend" id="zoom-legend"></div>
+    <div class="zoom-hint">마우스를 올리거나 손가락으로 끌면 그날의 점수가 보여요. 키보드는 ← → 로 이동합니다.</div>
+  </div>
+</dialog>
+
 <footer><div class="in">데이터: KRX·네이버 금융(FinanceDataReader), 한국은행 ECOS. 이 지수는 참고용이며 투자 권유가 아닙니다.</div></footer>
 
 <script>
@@ -297,7 +334,7 @@ function compare(d) {
   ).join("");
 }
 
-function lineChart(svg, xs, ys, { min, max, bands = false, ticks, color }) {
+function lineChart(svg, xs, ys, { min, max, bands = false, ticks, color, dateLen }) {
   svg.innerHTML = "";
   const W = svg.clientWidth, H = +svg.getAttribute("height");
   const m = { l: 48, r: 8, t: 8, b: 24 };
@@ -320,7 +357,7 @@ function lineChart(svg, xs, ys, { min, max, bands = false, ticks, color }) {
   for (let k = 0; k <= nx; k++) {
     const i = Math.round((k / nx) * (xs.length - 1));
     el("text", { ...label, x: x(i), y: H - 4, "text-anchor": k === 0 ? "start" : k === nx ? "end" : "middle" }, svg)
-      .textContent = xs[i].slice(0, RANGE && RANGE <= 182 ? 10 : 7);
+      .textContent = xs[i].slice(0, dateLen ?? (RANGE && RANGE <= 182 ? 10 : 7));
   }
   const d = ys.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
   el("path", { d, fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round" }, svg);
@@ -393,14 +430,88 @@ function indicators(d) {
         <i style="left:${ind.score}%"></i></div>
       <div class="rank">${ind.rank ?? ""}</div>
       <div class="now"><b>지금</b>${ind.text}</div>
-      <div class="spark"><div class="t">최근 1년 점수</div><svg viewBox="0 0 300 40" preserveAspectRatio="none"></svg></div>`;
+      <button class="spark" type="button" aria-label="${ind.name} 최근 1년 점수 크게 보기">
+        <div class="t"><span>최근 1년 점수</span><span>크게 보기 ›</span></div>
+        <svg viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"></svg></button>`;
     grid.appendChild(card);
+    card.querySelector(".spark").onclick = () => openZoom(ind);
     const svg = card.querySelector("svg"), hs = ind.history;
     el("line", { x1: 0, x2: 300, y1: 20, y2: 20, stroke: css("--hairline"), "stroke-width": 1, "vector-effect": "non-scaling-stroke" }, svg);
     const p = hs.map((v, i) => `${i ? "L" : "M"}${(i / (hs.length - 1)) * 300},${38 - (v / 100) * 36}`).join("");
     el("path", { d: p, fill: "none", stroke: css("--primary"), "stroke-width": 1.5, "vector-effect": "non-scaling-stroke" }, svg);
   });
 }
+
+let ZOOM = null;  // 열려 있는 확대 차트의 지표
+
+// 확대 차트에서 그날의 원시값을 카드 문구처럼 풀어 쓴다 (build.py 의 plain_text 와 같은 뜻)
+function rawText(key, v) {
+  const hl = (x, up = "높음", down = "낮음") => (x >= 0 ? up : down);
+  switch (key) {
+    case "momentum": return `KOSPI가 125일 평균보다 ${fmt(Math.abs(v), 1)}% ${hl(v)}`;
+    case "high_low": return v >= 0 ? `신고가 종목이 신저가보다 전체의 ${fmt(v, 1)}%만큼 많음`
+                                   : `신저가 종목이 신고가보다 전체의 ${fmt(-v, 1)}%만큼 많음`;
+    case "breadth": return `상승·하락 거래량 누적 지수 ${fmt(v)}`;
+    case "vkospi": return `VKOSPI가 약 3년 평균의 ${fmt(1 + v / 100, 2)}배`;
+    case "volatility": return `주가 출렁임이 약 3년 평균의 ${fmt(1 + v / 100, 2)}배`;
+    case "put_call": return `풋이 콜의 ${fmt(v, 2)}배 (거래대금)`;
+    case "inverse": return `인버스가 레버리지의 ${fmt(v, 2)}배 (거래대금)`;
+    case "safe_haven": return `20일 주식 수익률이 국채보다 ${fmt(Math.abs(v), 1)}%p ${hl(v)}`;
+    case "credit": return `우량 회사채 금리가 국채보다 ${fmt(v, 2)}%p 높음`;
+    default: return fmt(v, 2);
+  }
+}
+
+function openZoom(ind) {
+  ZOOM = ind;
+  document.getElementById("zoom-title").textContent = ind.name;
+  document.getElementById("zoom-desc").textContent = ind.desc;
+  document.getElementById("zoom-legend").innerHTML = BANDS.map(chip).join("");
+  const dlg = document.getElementById("zoom");
+  if (!dlg.open) dlg.showModal();
+  drawZoom();
+}
+
+function drawZoom() {
+  const ind = ZOOM, ys = ind.history, raws = ind.raw_history || [];
+  const xs = DATA.history.dates.slice(-ys.length);
+  const box = document.getElementById("zoom-chart");
+  const c = lineChart(document.getElementById("zoom-svg"), xs, ys,
+    { min: 0, max: 100, bands: true, ticks: [0, 25, 50, 75, 100], color: css("--primary"), dateLen: 7 });
+  let cur = ys.length - 1;
+  const read = i => {
+    cur = i;
+    c.show(i);
+    const bd = band(ys[i]);
+    const raw = raws[i] == null ? "" : `<span class="v">${rawText(ind.key, raws[i])}</span>`;
+    document.getElementById("zoom-read").innerHTML = `<span class="d">${xs[i]}</span>
+      <span class="s">${fmt(ys[i])}점</span>${chip(bd)}${raw}`;
+  };
+  const at = ev => {
+    const r = box.getBoundingClientRect();
+    const px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    read(Math.max(0, Math.min(xs.length - 1, Math.round(((px - c.m.l) / c.iw) * (xs.length - 1)))));
+  };
+  box.onmousemove = at;
+  box.ontouchstart = at;
+  box.ontouchmove = ev => { ev.preventDefault(); at(ev); };
+  box.onmouseleave = () => read(ys.length - 1);
+  box.onkeydown = ev => {
+    const step = { ArrowLeft: -1, ArrowRight: 1, PageUp: -20, PageDown: 20, Home: -1e9, End: 1e9 }[ev.key];
+    if (step === undefined) return;
+    ev.preventDefault();
+    read(Math.max(0, Math.min(xs.length - 1, cur + step)));
+  };
+  read(cur);
+}
+
+(() => {
+  const dlg = document.getElementById("zoom");
+  document.getElementById("zoom-close").onclick = () => dlg.close();
+  // 바깥(반투명 배경)을 누르면 닫는다. 내용 영역 클릭은 .zoom-in 이 받는다
+  dlg.addEventListener("click", ev => { if (ev.target === dlg) dlg.close(); });
+  dlg.addEventListener("close", () => { ZOOM = null; });
+})();
 
 function render() {
   const d = DATA, b = band(d.score), k = d.history.kospi;
@@ -429,7 +540,7 @@ document.querySelectorAll(".ranges button").forEach(btn => btn.onclick = () => {
   RANGE = +btn.dataset.days;
   history();
 });
-window.addEventListener("resize", () => DATA && history());
+window.addEventListener("resize", () => { if (!DATA) return; history(); if (ZOOM) drawZoom(); });
 
 fetch("data.json", { cache: "no-store" }).then(r => r.json()).then(d => { DATA = d; render(); })
   .catch(err => {
