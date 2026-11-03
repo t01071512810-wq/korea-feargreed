@@ -7,6 +7,9 @@ import pandas as pd
 
 WINDOW = 252  # 점수 환산에 쓰는 과거 구간(약 1년)
 MIN_PERIODS = 120
+# 지표별로 다른 구간을 쓰는 경우. 시장 변동성은 "장기 평균 대비 지금"을 보려고 약 4년으로 순위를 매긴다
+WINDOWS = {"volatility": (1000, 250)}
+LONG_VOL_DAYS = 1000
 
 LABELS = [(25, "극단적 공포"), (45, "공포"), (55, "중립"), (75, "탐욕"), (101, "극단적 탐욕")]
 
@@ -15,8 +18,8 @@ def label(score: float) -> str:
     return next(name for cut, name in LABELS if score < cut)
 
 
-def percentile_score(x: pd.Series) -> pd.Series:
-    return x.rolling(WINDOW, min_periods=MIN_PERIODS).rank(pct=True) * 100
+def percentile_score(x: pd.Series, window: int = WINDOW, min_periods: int = MIN_PERIODS) -> pd.Series:
+    return x.rolling(window, min_periods=min_periods).rank(pct=True) * 100
 
 
 def momentum(kospi: pd.Series) -> pd.Series:
@@ -60,9 +63,9 @@ def down_volume_share(close: pd.DataFrame, volume: pd.DataFrame, days: int = 10)
 
 
 def volatility(kospi: pd.Series) -> pd.Series:
-    """KOSPI 20일 실현변동성이 50일 평균보다 몇 % 높은가. (VKOSPI 대용, 높을수록 공포)"""
+    """KOSPI 20일 실현변동성이 1000일(약 4년) 평균보다 몇 % 높은가. (VKOSPI 대용, 높을수록 공포)"""
     vol = np.log(kospi).diff().rolling(20).std() * np.sqrt(252) * 100
-    return (vol / vol.rolling(50).mean() - 1) * 100
+    return (vol / vol.rolling(LONG_VOL_DAYS).mean() - 1) * 100
 
 
 def safe_haven(kospi: pd.Series, bond: pd.Series) -> pd.Series:
@@ -80,7 +83,7 @@ SPECS = {
     "momentum": ("시장 모멘텀", "KOSPI와 125일 이동평균의 괴리율", "%", 1),
     "high_low": ("주가 강도", "52주 신고가 − 신저가 종목 비율 (KOSPI+KOSDAQ)", "%", 1),
     "breadth": ("시장 폭", "McClellan 거래량 합산지수 (상승·하락 종목 거래량)", "", 1),
-    "volatility": ("시장 변동성", "KOSPI 20일 실현변동성의 50일 평균 대비 수준", "%", -1),
+    "volatility": ("시장 변동성", "KOSPI 20일 실현변동성의 1000일(약 4년) 평균 대비 수준", "%", -1),
     "inverse": ("하락 베팅 수요", "인버스 ÷ 레버리지 ETF 거래대금 5일 합계 (풋/콜 비율 대용)", "배", -1),
     "safe_haven": ("안전자산 수요", "KOSPI − 국고채10년 ETF 20일 수익률 차", "%p", 1),
     "credit": ("신용 스프레드", "회사채 3년 AA− 금리 − 국고채 3년 금리 (ECOS)", "%p", -1),
@@ -91,7 +94,7 @@ def score(raw: pd.DataFrame) -> pd.DataFrame:
     out = pd.DataFrame(index=raw.index)
     for key in raw.columns:
         direction = SPECS[key][3]
-        out[key] = percentile_score(raw[key] * direction)
+        out[key] = percentile_score(raw[key] * direction, *WINDOWS.get(key, (WINDOW, MIN_PERIODS)))
     return out
 
 
@@ -120,7 +123,7 @@ def plain_text(key: str, v: float, ctx: dict) -> str:
         trend = "상승" if ctx["breadth_above_avg"] else "하락"
         return f"최근 10일 거래량 상승 {100 - down:.0f}% · 하락 {down:.0f}%, 누적 흐름은 {trend} 우세"
     if key == "volatility":
-        return f"주가 출렁임이 50일 평균보다 {abs(v):.1f}% {_more_less(v, '큼', '작음')}"
+        return f"주가 출렁임이 약 4년 평균의 {1 + v / 100:.1f}배"
     if key == "inverse":
         return f"하락에 거는 ETF 거래가 상승에 거는 ETF의 {v:.2f}배"
     if key == "safe_haven":

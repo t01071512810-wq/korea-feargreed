@@ -52,7 +52,8 @@ def main():
     load_env()
     t0 = time.time()
     print("지수·ETF 수집")
-    kospi = market_closed_only(fetch.series("KS11")["Close"])
+    # 시장 변동성의 1000일 평균을 2017년부터 쓰려고 KOSPI만 더 일찍부터 받는다(종목 데이터는 2017년부터)
+    kospi = market_closed_only(fetch.series("KS11", "2012-01-01")["Close"])
     bond = fetch.series(BOND_ETF)["Close"].reindex(kospi.index).ffill()
 
     def traded_value(code):
