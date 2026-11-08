@@ -98,7 +98,7 @@ section { margin-top: 24px; }
 
 .chart-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .chart-head h2 { margin: 0; }
-.ranges { display: flex; gap: 4px; background: var(--canvas); padding: 4px; border-radius: 8px; }
+.ranges { display: flex; flex-wrap: wrap; gap: 4px; background: var(--canvas); padding: 4px; border-radius: 8px; }
 .ranges button {
   font: 600 13px/1 var(--sans); padding: 8px 12px; border-radius: 6px; cursor: pointer;
   border: 0; background: transparent; color: var(--muted-strong);
@@ -208,13 +208,7 @@ footer .in { max-width: 1280px; margin: 0 auto; padding: 24px 16px 40px; font-si
   <section class="card">
     <div class="chart-head">
       <h2>지수 추이</h2>
-      <div class="ranges" role="group" aria-label="기간">
-        <button data-days="30">1M</button>
-        <button data-days="182">6M</button>
-        <button data-days="365" aria-pressed="true">1Y</button>
-        <button data-days="1095">3Y</button>
-        <button data-days="0">전체</button>
-      </div>
+      <div class="ranges" id="ranges" role="group" aria-label="기간"></div>
     </div>
     <div class="chart" id="hist">
       <div class="chart-title">공포·탐욕 지수 (0~100)</div>
@@ -280,7 +274,7 @@ const el = (tag, attrs = {}, parent) => {
 const fmt = (v, d = 0) => v.toLocaleString("ko-KR", { minimumFractionDigits: d, maximumFractionDigits: d });
 const signed = (v, d = 0) => (v > 0 ? "+" : "") + fmt(v, d);
 const chip = b => `<span class="chip"><span class="dot" style="background:var(${b.v})"></span>${b.name}</span>`;
-let DATA, RANGE = 365;
+let DATA, PERIOD = "recent";  // 지수 추이 차트의 기간: 연도(숫자 문자열) 또는 "recent"(최근 1년)
 
 function gauge(score) {
   const svg = document.getElementById("gauge");
@@ -334,7 +328,7 @@ function compare(d) {
   ).join("");
 }
 
-function lineChart(svg, xs, ys, { min, max, bands = false, ticks, color, dateLen }) {
+function lineChart(svg, xs, ys, { min, max, bands = false, ticks, color }) {
   svg.innerHTML = "";
   const W = svg.clientWidth, H = +svg.getAttribute("height");
   const m = { l: 48, r: 8, t: 8, b: 24 };
@@ -357,7 +351,7 @@ function lineChart(svg, xs, ys, { min, max, bands = false, ticks, color, dateLen
   for (let k = 0; k <= nx; k++) {
     const i = Math.round((k / nx) * (xs.length - 1));
     el("text", { ...label, x: x(i), y: H - 4, "text-anchor": k === 0 ? "start" : k === nx ? "end" : "middle" }, svg)
-      .textContent = xs[i].slice(0, dateLen ?? (RANGE && RANGE <= 182 ? 10 : 7));
+      .textContent = xs[i].slice(0, 7);
   }
   const d = ys.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
   el("path", { d, fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round" }, svg);
@@ -383,14 +377,19 @@ function niceTicks(lo, hi, n = 4) {
 }
 
 function history() {
+  if (!document.getElementById("hist-score").clientWidth) return;  // 폭이 정해지기 전이면 resize 때 그린다
   const h = DATA.history;
-  let start = 0;
-  if (RANGE) {
+  let start, end;
+  if (PERIOD === "recent") {
     const cut = new Date(h.dates.at(-1));
-    cut.setDate(cut.getDate() - RANGE);
+    cut.setFullYear(cut.getFullYear() - 1);
     start = h.dates.findIndex(d => new Date(d) >= cut);
+    end = h.dates.length;
+  } else {
+    start = h.dates.findIndex(d => d.startsWith(PERIOD));
+    end = h.dates.findLastIndex(d => d.startsWith(PERIOD)) + 1;
   }
-  const xs = h.dates.slice(start), s = h.score.slice(start), k = h.kospi.slice(start);
+  const xs = h.dates.slice(start, end), s = h.score.slice(start, end), k = h.kospi.slice(start, end);
   const kmin = Math.min(...k), kmax = Math.max(...k), pad = (kmax - kmin) * 0.08;
   const a = lineChart(document.getElementById("hist-score"), xs, s,
     { min: 0, max: 100, bands: true, ticks: [0, 25, 50, 75, 100], color: css("--primary") });
@@ -477,7 +476,7 @@ function drawZoom() {
   const xs = DATA.history.dates.slice(-ys.length);
   const box = document.getElementById("zoom-chart");
   const c = lineChart(document.getElementById("zoom-svg"), xs, ys,
-    { min: 0, max: 100, bands: true, ticks: [0, 25, 50, 75, 100], color: css("--primary"), dateLen: 7 });
+    { min: 0, max: 100, bands: true, ticks: [0, 25, 50, 75, 100], color: css("--primary") });
   let cur = ys.length - 1;
   const read = i => {
     cur = i;
@@ -530,16 +529,24 @@ function render() {
   document.getElementById("delta").innerHTML = `전일 대비 <span class="${cls(dprev)}">${signed(dprev, 1)}</span>`;
   gauge(d.score);
   compare(d);
+  periodButtons();
   history();
   indicators(d);
   document.getElementById("band-legend").innerHTML = BANDS.map(chip).join("");
 }
 
-document.querySelectorAll(".ranges button").forEach(btn => btn.onclick = () => {
-  document.querySelectorAll(".ranges button").forEach(b => b.setAttribute("aria-pressed", b === btn));
-  RANGE = +btn.dataset.days;
-  history();
-});
+function periodButtons() {
+  const box = document.getElementById("ranges");
+  const years = [...new Set(DATA.history.dates.map(d => d.slice(0, 4)))];
+  box.innerHTML = [...years.map(y => [y, y]), ["recent", "최근 1년"]].map(([v, name]) =>
+    `<button type="button" data-period="${v}" aria-pressed="${v === PERIOD}">${name}</button>`).join("");
+  box.querySelectorAll("button").forEach(btn => btn.onclick = () => {
+    box.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b === btn));
+    PERIOD = btn.dataset.period;
+    history();
+  });
+}
+
 window.addEventListener("resize", () => { if (!DATA) return; history(); if (ZOOM) drawZoom(); });
 
 fetch("data.json", { cache: "no-store" }).then(r => r.json()).then(d => { DATA = d; render(); })
