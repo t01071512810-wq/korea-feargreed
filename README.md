@@ -33,7 +33,7 @@ python -m http.server -d docs 8000
 
 ## 자동 갱신
 
-`.github/workflows/update.yml`이 GitHub Actions에서 평일 16:30~19:00 KST 사이(장 마감 반영, 16:30·17:15·19:00 세 번)와 다음 날 08:30~08:45 KST 사이(회사채 금리 반영 후 확정, 두 번)에 `build.py`를 돌리고 `docs/`의 결과물(data.json, og.png, index.html)을 커밋합니다. 커밋이 올라가면 Vercel이 자동으로 다시 배포합니다. 저장소 설정에서 GitHub Pages를 `docs/` 폴더로 지정하고, Secrets에 `ECOS_API_KEY`와 `KRX_API_KEY`를 넣으면 됩니다.
+`.github/workflows/update.yml`이 GitHub Actions에서 평일 16:30 KST(장 마감 반영)와 다음 날 08:30 KST(회사채 금리·옵션 데이터 반영 후 확정)에 `build.py`를 돌리고 `docs/`의 결과물(data.json, og.png, index.html)을 커밋합니다. 커밋이 올라가면 Vercel이 자동으로 다시 배포합니다. GitHub 예약 실행은 몇 시간씩 늦어서, 제시간 실행은 [cron-job.org](https://cron-job.org)가 GitHub API의 `workflow_dispatch`를 호출합니다(Actions 쓰기 권한만 가진 토큰, 만료 시 재발급 필요). 저장소의 `schedule`은 예비용입니다. 저장소 설정에서 GitHub Pages를 `docs/` 폴더로 지정하고, Secrets에 `ECOS_API_KEY`와 `KRX_API_KEY`를 넣으면 됩니다.
 
 참고용 지표이며 투자 권유가 아닙니다.
 
